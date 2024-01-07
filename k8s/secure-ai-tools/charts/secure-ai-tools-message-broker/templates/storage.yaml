@@ -1,0 +1,21 @@
+{{- if eq .Values.persistence.existingPVC "" }}
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: {{ include "secure-ai-tools-message-broker.fullname" . }}-pvc
+  {{- if .Values.persistence.resource_policy_keep }}
+  annotations:
+    "helm.sh/resource-policy": "keep"
+  {{- end }}
+  labels:
+    {{- include "secure-ai-tools-message-broker.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: {{ .Values.persistence.storageSize }}
+  {{ if .Values.persistence.storageClass }}
+  storageClassName: {{ .Values.persistence.storageClass }}
+  {{- end }}
+{{- end }}

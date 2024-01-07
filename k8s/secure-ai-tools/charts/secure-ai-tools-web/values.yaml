@@ -1,0 +1,194 @@
+# Default values for secure-ai-tools-web.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+replicaCount: 1
+
+image:
+  repository: public.ecr.aws/d8f2p0h3/secure-ai-tools
+  pullPolicy: IfNotPresent
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: ""
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Automatically mount a ServiceAccount's API credentials?
+  automount: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+podAnnotations: {}
+podLabels: {}
+
+podSecurityContext: {}
+  # fsGroup: 2000
+
+securityContext: {}
+  # capabilities:
+  #   drop:
+  #   - ALL
+  # readOnlyRootFilesystem: true
+  # runAsNonRoot: true
+  # runAsUser: 1000
+
+service:
+  type: ClusterIP
+  port: 28669
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+    # kubernetes.io/ingress.class: nginx
+    # kubernetes.io/tls-acme: "true"
+  hosts:
+    - host: chart-example.local
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+  tls: []
+  #  - secretName: chart-example-tls
+  #    hosts:
+  #      - chart-example.local
+
+resources: {}
+  # We usually recommend not to specify default resources and to leave this as a conscious
+  # choice for the user. This also increases chances charts run on environments with little
+  # resources, such as Minikube. If you do want to specify resources, uncomment the following
+  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+  # limits:
+  #   cpu: 100m
+  #   memory: 128Mi
+  # requests:
+  #   cpu: 100m
+  #   memory: 128Mi
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 100
+  targetCPUUtilizationPercentage: 80
+  # targetMemoryUtilizationPercentage: 80
+
+persistence:
+  # If setting existingPVC then also set the samve value to claimName in volumes.
+  existingPVC: ""
+  storageSize: 5Gi
+  storageClass:
+  resource_policy_keep: false
+
+# Additional volumes on the output Deployment definition.
+# volumes: []
+# - name: foo
+#   secret:
+#     secretName: mysecret
+#     optional: false
+volumes:
+- name: web-vol
+  persistentVolumeClaim:
+    claimName: secure-ai-tools-web-pvc
+
+# Additional volumeMounts on the output Deployment definition.
+# volumeMounts: []
+# - name: foo
+#   mountPath: "/etc/foo"
+#   readOnly: true
+volumeMounts:
+- name: web-vol
+  mountPath: "/app/volume"
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+
+# inferenceServer: "http://inference:11434/"
+inferenceHost: "secure-ai-tools-inference"
+# inferenceHost: "secure-ai-tools-secure-ai-tools-inference"
+inferencePort: "11434"
+# vectorDBServer: "http://vector-db:8000"
+vectorDBHost: "secure-ai-tools-vector-db"
+# vectorDBHost: "secure-ai-tools-secure-ai-tools-vector-db"
+vectorDBPort: "8000"
+# databaseURL: "postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}"
+# databaseUser: "secure-ai-tools-user"
+# databasePassword: ""
+# databaseName: "secure-ai-tools"
+# databaseHost: "db"
+# databasePort: "5432"
+# AMQPServerURL: "amqp://${RABBITMQ_DEFAULT_USER}:${RABBITMQ_DEFAULT_PASS}@message-broker:5672"
+# AMQPServerUser: "secure-ai-tools-user"
+# AMQPServerPassword: ""
+# AMQPServerHost: "message-broker"
+# AMQPServerPort: "5672"
+
+DBSecretName: "db-credentials"
+AMQPSecretName: "message-broker-credentials"
+
+env:
+  # These two variables are defined in the deployment.yaml
+  # INFERENCE_SERVER: "http://{{ .Values.inferenceHost }}:{{ .Values.inferencePort }}"
+  # VECTOR_DB_SERVER: "http://{{ .Values.vectorDBHost }}:{{ .Values.vectorDBPort }}"
+
+  # Validity period for auth tokens generated on log-in
+  AUTH_TOKEN_VALIDITY_HOURS: "720"
+
+  # When using custom domain, point this to that domain.
+  # https://next-auth.js.org/configuration/options#nextauth_url
+  NEXTAUTH_URL: "http://localhost:28669/"
+
+  # Winston logging level
+  LOG_LEVEL: "info"
+
+  # Document indexing and retrieval configs
+  DOCS_INDEXING_CHUNK_SIZE: "1000"
+  DOCS_INDEXING_CHUNK_OVERLAP: "200"
+  DOCS_RETRIEVAL_K: "2"
+
+  # Model provider configs
+  # Configure external model providers here. Needs to be serialized JSON of ModelProviderConfig[]
+  # https://github.com/SecureAI-Tools/SecureAI-Tools/blob/main/packages/core/src/types/model-provider-config.ts
+  # MODEL_PROVIDER_CONFIGS: '[{"type":"OPENAI","apiBaseUrl":"https://api.openai.com/v1","apiKey":"..."}]'
+
+  # AMQP Server (RabbitMQ) info
+  AMQP_DOCS_INDEXING_QUEUE_NAME: "documents-indexing-queue"
+
+  # ---------------------------------------------- INSTANCE CONFIG ------------------------------------------------------#
+  # Instance configs (available publicly via an endpoint)
+
+  # Analytics: ["enabled", "disabled"]
+  # We recommend enabling this so that we can get anonymized usage data. It will help us improve the platform :)
+  INSTANCE_CONFIG_ANALYTICS: "disabled"
+
+  # ----------------------------------------------- DO NOT TOUCH --------------------------------------------------------#
+  # Env vars that are intertwined with docker-compose.
+
+  LOCAL_OBJECT_STORAGE_DIR: "/app/volume/data/local-objects/"
+  DATABASE_FILE: "/app/volume/data/SecureAI-Tools.db"
+  LOG_DIR: "/app/volume/logs/"
+
+random_pw_secret_name_next_auth: "next-auth-secret"
+random_pw_secret_key_next_auth: NEXTAUTH_SECRET
+random_pw_secret_resource_policy_keep_next_auth: false
+secretDataNextAuth:
+  # NextAuth / AuthJS secret to generate auth tokens on log-in
+  # Generate with: openssl rand -hex 32
+  NEXTAUTH_SECRET: '{{- include "random_pw_reusable_next_auth" . -}}'
+
+random_pw_secret_name_analytics: "analytics-secret"
+random_pw_secret_key_analytics: INSTANCE_CONFIG_INSTANCE_ID
+random_pw_secret_resource_policy_keep_analytics: false
+secretDataAnalytics:
+  # Instance id
+  # Generate a random one with: openssl rand -hex 32
+  INSTANCE_CONFIG_INSTANCE_ID: '{{- include "random_pw_reusable_analytics" . -}}'

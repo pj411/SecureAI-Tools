@@ -1,0 +1,123 @@
+# Default values for secure-ai-tools-task-master.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+replicaCount: 1
+
+image:
+  repository: public.ecr.aws/d8f2p0h3/secure-ai-tools
+  pullPolicy: IfNotPresent
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: ""
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Automatically mount a ServiceAccount's API credentials?
+  automount: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+podAnnotations: {}
+podLabels: {}
+
+podSecurityContext: {}
+  # fsGroup: 2000
+
+securityContext: {}
+  # capabilities:
+  #   drop:
+  #   - ALL
+  # readOnlyRootFilesystem: true
+  # runAsNonRoot: true
+  # runAsUser: 1000
+
+resources: {}
+  # We usually recommend not to specify default resources and to leave this as a conscious
+  # choice for the user. This also increases chances charts run on environments with little
+  # resources, such as Minikube. If you do want to specify resources, uncomment the following
+  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+  # limits:
+  #   cpu: 100m
+  #   memory: 128Mi
+  # requests:
+  #   cpu: 100m
+  #   memory: 128Mi
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 100
+  targetCPUUtilizationPercentage: 80
+  # targetMemoryUtilizationPercentage: 80
+
+# Additional volumes on the output Deployment definition.
+# volumes: []
+# - name: foo
+#   secret:
+#     secretName: mysecret
+#     optional: false
+volumes:
+- name: web-vol
+  persistentVolumeClaim:
+    # This should be created by the secure-ai-tools-web chart or manually.
+    claimName: secure-ai-tools-web-pvc
+
+# Additional volumeMounts on the output Deployment definition.
+# volumeMounts: []
+# - name: foo
+#   mountPath: "/etc/foo"
+#   readOnly: true
+volumeMounts:
+- name: web-vol
+  mountPath: "/app/volume"
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+DBSecretName: "db-credentials"
+AMQPSecretName: "message-broker-credentials"
+inferenceHost: "secure-ai-tools-inference"
+# inferenceHost: "secure-ai-tools-secure-ai-tools-inference"
+inferencePort: "11434"
+vectorDBHost: "secure-ai-tools-vector-db"
+# vectorDBHost: "secure-ai-tools-secure-ai-tools-vector-db"
+vectorDBPort: "8000"
+
+env:
+  # These two variables are defined in the deployment.yaml
+  # INFERENCE_SERVER: "http://{{ .Values.inferenceHost }}:{{ .Values.inferencePort }}"
+  # VECTOR_DB_SERVER: "http://{{ .Values.vectorDBHost }}:{{ .Values.vectorDBPort }}"
+
+  # Winston logging level
+  LOG_LEVEL: "info"
+
+  # Document indexing and retrieval configs
+  DOCS_INDEXING_CHUNK_SIZE: "1000"
+  DOCS_INDEXING_CHUNK_OVERLAP: "200"
+  DOCS_RETRIEVAL_K: "2"
+
+  # Model provider configs
+  # Configure external model providers here. Needs to be serialized JSON of ModelProviderConfig[]
+  # https://github.com/SecureAI-Tools/SecureAI-Tools/blob/main/packages/core/src/types/model-provider-config.ts
+  # MODEL_PROVIDER_CONFIGS: '[{"type":"OPENAI","apiBaseUrl":"https://api.openai.com/v1","apiKey":"..."}]'
+
+  # AMQP Server (RabbitMQ) info
+  AMQP_DOCS_INDEXING_QUEUE_NAME: "documents-indexing-queue"
+
+  # ----------------------------------------------- DO NOT TOUCH --------------------------------------------------------#
+  # Env vars that are intertwined with docker-compose.
+
+  LOCAL_OBJECT_STORAGE_DIR: "/app/volume/data/local-objects/"
+  DATABASE_FILE: "/app/volume/data/SecureAI-Tools.db"
+  LOG_DIR: "/app/volume/logs/"

@@ -1,0 +1,107 @@
+# Default values for secure-ai-tools-db.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+replicaCount: 1
+
+image:
+  repository: postgres
+  pullPolicy: IfNotPresent
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: "latest"
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Automatically mount a ServiceAccount's API credentials?
+  automount: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+podAnnotations: {}
+podLabels: {}
+
+podSecurityContext: {}
+  # fsGroup: 2000
+
+securityContext: {}
+  # capabilities:
+  #   drop:
+  #   - ALL
+  # readOnlyRootFilesystem: true
+  # runAsNonRoot: true
+  # runAsUser: 1000
+
+service:
+  type: ClusterIP
+  port: 5432
+
+resources:
+  # We usually recommend not to specify default resources and to leave this as a conscious
+  # choice for the user. This also increases chances charts run on environments with little
+  # resources, such as Minikube. If you do want to specify resources, uncomment the following
+  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+  # limits:
+  #   cpu: 500m
+  #   memory: 512Mi
+  # requests:
+  #   cpu: 100m
+  #   memory: 128Mi
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 100
+  targetCPUUtilizationPercentage: 80
+  # targetMemoryUtilizationPercentage: 80
+
+persistence:
+  # If setting existingPVC then also set the samve value to claimName in volumes.
+  existingPVC: ""
+  storageSize: 5Gi
+  storageClass:
+  resource_policy_keep: false
+
+# Additional volumes on the output Deployment definition.
+# volumes: []
+# - name: foo
+#   secret:
+#     secretName: mysecret
+#     optional: false
+volumes:
+- name: db-vol
+  persistentVolumeClaim:
+    claimName: secure-ai-tools-db-pvc
+
+# Additional volumeMounts on the output Deployment definition.
+# volumeMounts: []
+# - name: foo
+#   mountPath: "/etc/foo"
+#   readOnly: true
+volumeMounts:
+- name: db-vol
+  mountPath: "/var/lib/postgresql/data"
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+random_pw_secret_name: db-credentials
+random_pw_secret_key: POSTGRES_PASSWORD
+random_pw_secret_resource_policy_keep: false
+secretData:
+  DB_HOST: '{{ include "secure-ai-tools-db.fullname" . }}'
+  DB_PORT: '{{- .Values.service.port -}}'
+  POSTGRES_DB: secure-ai-tools
+  POSTGRES_USER: secure-ai-tools-user
+  POSTGRES_PASSWORD: '{{- include "random_pw_reusable" . -}}'
+  DATABASE_URL: 'postgresql://{{- .Values.secretData.POSTGRES_USER -}}:{{- include "random_pw_reusable" . -}}@{{- include "secure-ai-tools-db.fullname" . -}}:{{- .Values.service.port -}}/{{- .Values.secretData.POSTGRES_DB -}}'

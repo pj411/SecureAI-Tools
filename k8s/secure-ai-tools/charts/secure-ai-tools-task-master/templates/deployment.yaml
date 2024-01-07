@@ -1,0 +1,94 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "secure-ai-tools-task-master.fullname" . }}
+  labels:
+    {{- include "secure-ai-tools-task-master.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "secure-ai-tools-task-master.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "secure-ai-tools-task-master.labels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "secure-ai-tools-task-master.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      initContainers:
+        - name: init-db
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default (printf "v%s" .Chart.AppVersion) }}"
+          command: ['sh', '-c']
+          args: ["cd /app && sh apps/web/tools/db-migrate-and-seed.sh $(DATABASE_FILE)"]
+          # args: ["sleep infinity"]
+          envFrom:
+          - secretRef:
+              # name: {{ include "secure-ai-tools-task-master.fullname" . }}-db-secret
+              name: "{{ .Values.DBSecretName }}"
+          env:
+          {{- range $key, $val := .Values.env }}
+          - name: {{ $key }}
+            value: "{{ $val }}"
+          {{- end}}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default (printf "v%s" .Chart.AppVersion) }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ['/bin/sh', '-c']
+          args: ["cd /app/apps/task-master/ && node --experimental-specifier-resolution=node dist/main.js"]
+          # args: ["sleep infinity"]
+          envFrom:
+          - secretRef:
+              # name: {{ include "secure-ai-tools-task-master.fullname" . }}-db-secret
+              name: "{{ .Values.DBSecretName }}"
+          - secretRef:
+              # name: {{ include "secure-ai-tools-task-master.fullname" . }}-amqp-secret
+              name: "{{ .Values.AMQPSecretName }}"
+          env:
+          - name: INFERENCE_SERVER
+            value: "http://{{ .Values.inferenceHost }}:{{ .Values.inferencePort }}"
+          - name: VECTOR_DB_SERVER
+            value: "http://{{ .Values.vectorDBHost }}:{{ .Values.vectorDBPort }}"
+          {{- range $key, $val := .Values.env }}
+          - name: {{ $key }}
+            value: "{{ $val }}"
+          {{- end}}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          {{- with .Values.volumeMounts }}
+          volumeMounts:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      {{- with .Values.volumes }}
+      volumes:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
